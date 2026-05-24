@@ -1,0 +1,143 @@
+# Сервис оценки близости предметных областей
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_API_URL=https://vancommdot.com/opt-sim/api
+      - VITE_APP_TITLE=Сервис оценки близости
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    profiles:
+      - frontend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    # runtime: nvidia # требует NVIDIA Container Toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - DATASET_PATH=${DATASET_PATH:-data/terms.csv}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-ai-forever/sbert_large_nlu_ru}
+      - DEVICE=${DEVICE:-cuda} # cpu, cuda, mps
+      - SIMILARITY_METRIC=${SIMILARITY_METRIC:-cosine}
+      - IDF_THRESHOLD=${IDF_THRESHOLD:-0.0}
+      - ZSCORE_THRESHOLD=${ZSCORE_THRESHOLD:-3.0}
+      - CACHE_TTL=${CACHE_TTL:-3600}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - RUWORDNET_DB_PATH=${RUWORDNET_DB_PATH:-/app/data/ruwordnet.db}
+    volumes:
+      - ./data:/app/data:ro
+      - ./data/similarity:/app/data/similarity
+      - huggingface_cache:/root/.cache/huggingface:rw
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 320s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    tmpfs:
+      - /data
+    command: >
+      redis-server  --requirepass ${REDIS_PASSWORD:-changeme} --appendonly no --maxmemory 2GB  --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    restart: unless-stopped
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: diplom_celery
+    # NVIDIA GPU support (требует NVIDIA Container Toolkit)
+    # runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    command: celery -A src.application.tasks worker --loglevel=info --concurrency=2
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - DATASET_PATH=${DATASET_PATH:-data/terms.csv}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-ai-forever/sbert_large_nlu_ru}
+      - DEVICE=${DEVICE:-cpu}
+      - RUWORDNET_DB_PATH=${RUWORDNET_DB_PATH:-/app/data/ruwordnet.db}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
+    volumes:
+      - ./data:/app/data:ro
+      - ./data/similarity:/app/data/similarity
+      - huggingface_cache:/root/.cache/huggingface:rw
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  ssh_tunnel:
+    image: alpine:latest
+    container_name: ssh_tunnel
+    restart: always
+    volumes:
+      - ~/.ssh:/mnt/.ssh:ro
+    environment:
+      - AUTOSSH_GATETIME=0
+      - AUTOSSH_POLL=30
+    depends_on:
+      - backend
+    networks:
+      - internal
+    command: >
+      sh -c "apk add --no-cache autossh openssh-client && mkdir -p /root/.ssh && cp -R /mnt/.ssh/* /root/.ssh/ && chmod 700 /root/.ssh && chmod 600 /root/.ssh/* && autossh -M 0 -N -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 mskbox -R 28000:backend:8000"
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  huggingface_cache:
+    driver: local

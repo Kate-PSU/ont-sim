@@ -1,0 +1,69 @@
+# backend/requirements.txt
+# Зависимости бэкенда
+#
+# Версия: 1.0
+# Обновлено: 2026-04-06
+
+# === Core ===
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# === Data processing ===
+pandas==2.2.0
+numpy==1.26.3
+pyarrow>=14.0.0
+scikit-learn==1.4.0
+scipy==1.12.0
+
+# === NLP ===
+pymorphy3==1.0.0
+nltk==3.8.1
+
+# === Data Harvesting ===
+feedparser>=6.0.8     # Парсинг arXiv Atom-фидов
+sickle>=0.7.0         # OAI-PMH клиент для Киберленинки и других репозиториев
+wikipedia>=1.4.0      # Wikipedia API для сбора русских терминов
+
+# === Embeddings ===
+sentence-transformers>=3.0.1
+transformers>=4.39.0
+torch>=2.11.0
+
+# === Cache ===
+redis==5.0.1
+
+# === Async Tasks ===
+celery==5.3.6
+
+# === Testing ===
+pytest==8.3.0
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+httpx==0.27.0
+fakeredis==2.21.1
+
+# === Quality ===
+flake8==7.0.0
+pylint==3.0.3
+mypy==1.8.0
+isort==5.13.2
+
+# === Clustering & Topic Modeling (for P01 alternative methods) ===
+bertopic>=0.16.0
+hdbscan>=0.8.29
+umap-learn>=0.5.5
+gensim>=4.3.0
+
+# === Utils ===
+python-dotenv==1.0.1
+python-multipart==0.0.9
+aiofiles==23.2.1
+
+# === WordNet ===
+ruwordnet==0.0.6
+greenlet>=3.0.0
+sqlalchemy<2.0
+faiss-cpu>=1.7.0
+aiohttp
