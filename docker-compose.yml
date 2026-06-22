@@ -26,21 +26,22 @@ services:
     ports:
       - "8000:8000"
     # runtime: nvidia # требует NVIDIA Container Toolkit
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
+    #deploy:
+      #resources:
+        #reservations:
+          #devices:
+            #- driver: nvidia
+              #count: all
+              #capabilities: [ gpu ]
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+      #- NVIDIA_VISIBLE_DEVICES=all
       - REDIS_HOST=redis
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       - DATASET_PATH=${DATASET_PATH:-data/terms.csv}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-ai-forever/sbert_large_nlu_ru}
-      - DEVICE=${DEVICE:-cuda} # cpu, cuda, mps
+      #- DEVICE=${DEVICE:-cuda} # cpu, cuda, mps
+      - DEVICE=cpu
       - SIMILARITY_METRIC=${SIMILARITY_METRIC:-cosine}
       - IDF_THRESHOLD=${IDF_THRESHOLD:-0.0}
       - ZSCORE_THRESHOLD=${ZSCORE_THRESHOLD:-3.0}
@@ -88,16 +89,16 @@ services:
     container_name: diplom_celery
     # NVIDIA GPU support (требует NVIDIA Container Toolkit)
     # runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
+    #deploy:
+      #resources:
+        #reservations:
+          #devices:
+            #- driver: nvidia
+              #count: all
+              #capabilities: [ gpu ]
     command: celery -A src.application.tasks worker --loglevel=info --concurrency=2
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+      #- NVIDIA_VISIBLE_DEVICES=all
       - REDIS_HOST=redis
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
@@ -133,7 +134,8 @@ services:
       - internal
     command: >
       sh -c "apk add --no-cache autossh openssh-client && mkdir -p /root/.ssh && cp -R /mnt/.ssh/* /root/.ssh/ && chmod 700 /root/.ssh && chmod 600 /root/.ssh/* && autossh -M 0 -N -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 mskbox -R 28000:backend:8000"
-
+    profiles:
+      - tunnel
 networks:
   internal:
     driver: bridge
