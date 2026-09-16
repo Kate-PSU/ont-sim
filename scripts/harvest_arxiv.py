@@ -486,12 +486,39 @@ class ArxivClient:
 
             logger.debug(f"Запрос: {url}")
 
-            # Загрузка данных
-            feed = feedparser.parse(url)
+            # Загрузка данных с повторными попытками.
+            # Пустой feed не считаем автоматически концом категории:
+            # он может быть следствием временной ошибки arXiv API.
+            max_retries = 3
+            feed = None
 
-            if feed.bozo:
+            for attempt in range(1, max_retries + 1):
+                feed = feedparser.parse(url)
+
+                status = getattr(feed, "status", None)
+
+                if feed.bozo:
+                    logger.warning(
+                        f"Ошибка парсинга на позиции {start}: "
+                        f"{feed.bozo_exception}"
+                    )
+
+                if feed.entries:
+                    break
+
                 logger.warning(
-                    f"Ошибка парсинга на позиции {start}: {feed.bozo_exception}"
+                    f"Пустой ответ arXiv для {category}: "
+                    f"status={status}, попытка {attempt}/{max_retries}"
+                )
+
+                if attempt < max_retries:
+                    time.sleep(self.request_delay)
+
+            if feed is None or not feed.entries:
+                raise RuntimeError(
+                    f"Не удалось получить данные arXiv для {category} "
+                    f"после {max_retries} попыток. "
+                    "Пустой ответ не интерпретируется как конец категории."
                 )
 
             # Обработка записей
@@ -621,8 +648,8 @@ class TermExtractor:
         self.max_features = max_features
 
         # Проверка доступности spaCy
-        self._spacy_available = self._check_spacy()
         self._nlp: Optional[object] = None
+        self._spacy_available = self._check_spacy()
 
         # Инициализация TF-IDF векторизатора
         self._vectorizer = None
@@ -684,6 +711,35 @@ class TermExtractor:
 
         return text.strip()
 
+    def _lemmatize_text(self, text: str) -> str:
+        """Лемматизация английского текста с помощью spaCy.
+
+        Если spaCy или модель en_core_web_sm недоступны,
+        возвращает исходный текст без изменений.
+        """
+        if not self._spacy_available or self._nlp is None:
+            return text
+
+        try:
+            doc = self._nlp(text)
+
+            lemmas = []
+            for token in doc:
+                lemma = token.lemma_.lower().strip()
+
+                if (
+                    lemma
+                    and lemma != "-pron-"
+                    and lemma.isalpha()
+                ):
+                    lemmas.append(lemma)
+
+            return " ".join(lemmas)
+
+        except Exception as e:
+            logger.warning(f"Ошибка лемматизации spaCy: {e}")
+            return text
+        
     def _filter_stopwords(self, tokens: list[str]) -> list[str]:
         """Фильтрация стоп-слов из списка токенов.
 
@@ -747,8 +803,11 @@ class TermExtractor:
         """
         from sklearn.feature_extraction.text import TfidfVectorizer
 
-        # Предобработка документов
-        processed_docs = [self._preprocess_text(doc) for doc in documents]
+        # Предобработка и лемматизация документов
+        processed_docs = [
+            self._lemmatize_text(self._preprocess_text(doc))
+            for doc in documents
+        ]
         self._processed_docs = processed_docs
 
         logger.info(f"Обработано {len(documents)} документов для домена {domain}")
