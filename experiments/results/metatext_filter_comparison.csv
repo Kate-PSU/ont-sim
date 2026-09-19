@@ -1,0 +1,13 @@
+model,preprocessing,weighting,domain1,domain2,similarity
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,cs.LG,0.9997665882110596
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,physics.chem-ph,0.9985367655754089
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,q-bio,0.9991078972816467
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,cs.LG,physics.chem-ph,0.9990049004554749
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,cs.LG,q-bio,0.9995198249816895
+ai-forever/sbert_large_nlu_ru,lemmatized_deduplicated_metatext_filtered,unweighted,physics.chem-ph,q-bio,0.9991574883460999
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,cs.LG,0.988317608833313
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,physics.chem-ph,0.9547796249389648
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,cs.CR,q-bio,0.9610247015953064
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,cs.LG,physics.chem-ph,0.9686844348907471
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,cs.LG,q-bio,0.9730591177940369
+sentence-transformers/all-mpnet-base-v2,lemmatized_deduplicated_metatext_filtered,unweighted,physics.chem-ph,q-bio,0.9807660579681396
