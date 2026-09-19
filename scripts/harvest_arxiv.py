@@ -20,13 +20,14 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+from urllib.request import Request, urlopen
 
 # ============================================================================
 # КОНСТАНТЫ
 # ============================================================================
 
 # URL arXiv API
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 # Категории по умолчанию
 DEFAULT_CATEGORIES = ["cs.LG", "cs.CR", "q-bio", "physics.chem-ph"]
@@ -493,17 +494,33 @@ class ArxivClient:
             feed = None
 
             for attempt in range(1, max_retries + 1):
-                feed = feedparser.parse(url)
+                try:
+                    request = Request(
+                        url,
+                        headers={"User-Agent": "Mozilla/5.0"},
+                    )
 
-                status = getattr(feed, "status", None)
+                    with urlopen(request, timeout=30) as response:
+                        data = response.read()
+                        status = response.status
 
-                if feed.bozo:
+                    feed = feedparser.parse(data)
+
+                except Exception as e:
+                    logger.warning(
+                        f"Ошибка запроса arXiv для {category}: "
+                        f"{e}, попытка {attempt}/{max_retries}"
+                    )
+                    feed = None
+                    status = None
+
+                if feed is not None and feed.bozo:
                     logger.warning(
                         f"Ошибка парсинга на позиции {start}: "
                         f"{feed.bozo_exception}"
                     )
 
-                if feed.entries:
+                if feed is not None and feed.entries:
                     break
 
                 logger.warning(
@@ -512,7 +529,11 @@ class ArxivClient:
                 )
 
                 if attempt < max_retries:
-                    time.sleep(self.request_delay)
+                    retry_delay = self.request_delay * (2 ** (attempt - 1))
+                    logger.info(
+                        f"Повторный запрос через {retry_delay:.1f} сек."
+                    )
+                    time.sleep(retry_delay)
 
             if feed is None or not feed.entries:
                 raise RuntimeError(
